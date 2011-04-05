@@ -181,10 +181,11 @@ jQuery(function($) {
                 if (!maxItems()) {
                     return false;
                 }
-                var li = document.createElement("li");
-                var txt = document.createTextNode(title);
-                var aclose = document.createElement("a");
-                var liclass = "ui-button ui-corner-all ui-state-default bit-box" + (locked ? " locked": "");
+                var li = document.createElement("li"),
+                    txt = document.createTextNode(title),
+                    aclose = document.createElement("a"),
+                    liclass = "ui-button ui-corner-all ui-state-default bit-box" + (locked ? " locked": ""),
+                    _item;
 
                 $(li).attr({
                     "class": liclass,
@@ -244,7 +245,6 @@ jQuery(function($) {
 
                 if (!preadded) {
                     $("#" + elemid + "_annoninput").remove();
-                    var _item;
                     addInput(focusme);
                     if (element.children("option[value=" + value + "]").length) {
                         _item = element.children("option[value=" + value + "]");
@@ -255,7 +255,7 @@ jQuery(function($) {
                         }
                     }
                     else{
-                        var _item = $(document.createElement("option"));
+                        _item = $(document.createElement("option"));
                         _item.attr("value", value).get(0).setAttribute("selected", "selected");
                         _item.attr("value", value).attr("selected", "selected");
                         _item.attr("value", value).addClass("selected");
@@ -287,9 +287,9 @@ jQuery(function($) {
             }
 
             function addInput(focusme) {
-                var li = $(document.createElement("li"));
-                var input = $(document.createElement("input"));
-                var getBoxTimeout = 0;
+                var li = $(document.createElement("li")),
+                    input = $(document.createElement("input")),
+                    getBoxTimeout = 0;
 
                 li.attr({
                     "class": "bit-input",
@@ -435,9 +435,8 @@ jQuery(function($) {
 
               addTextItem(etext);
 
-              var content = '';
+              var content = '', list;
               //content += '<li class="ui-state-default ui-corner-all" rel="' + /*object.value*/ 'Within 20 miles of 26101 (Parkersburg, WV)' + '">' + /*itemIllumination(object.key, etext)*/ 'Within 20 miles of 26101 (Parkersburg, WV)' + '</li>';
-              var list;
               for(var each in list = [10, 25, 50, 100]) {
                 content += '<li class="ui-state-default ui-corner-all" rel="' + /*object.value*/ 'Within ' + list[each] + ' miles of 26101 (Parkersburg, WV)' + '">' + /*itemIllumination(object.key, etext)*/ 'Within ' + list[each] + ' miles of 26101 (Parkersburg, WV)' + '</li>';
               }
@@ -481,14 +480,13 @@ jQuery(function($) {
                     });
                 }
 
-                var maximum = options.maxshownitems < cache.length ? options.maxshownitems: cache.length;
-                var filter = "i";
+                var maximum = options.maxshownitems < cache.length ? options.maxshownitems: cache.length,
+                    filter = "i", myregexp, match;
+
                 if (options.filter_case) {
                     filter = "";
                 }
 
-                var myregexp,
-                match;
                 try{
                     myregexp = eval('/(?:^|;)\\s*(\\d+)\\s*:[^;]*?' + etext + '[^;]*/g' + filter);
                     match = myregexp.exec(search_string);
