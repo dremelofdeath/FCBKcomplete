@@ -52,9 +52,20 @@
 - 2.7.5  event call removeItem fixed
          new public method destroy added needed to remove fcbkcomplete element from dome
 
+- 2.7.5-cmc1   adding support for jQuery UI themes (zack)
+               improved backspace performance, backspace delete autoselects last element (zack)
+               dropping image dependency for closebutton, adding ui-icon-close (zack)
+               adding hover theme support for items (zack)
+               making items selectable (zack)
+               adding options for zipcode detection (zack)
+               bugfix for blank elements (zack)
+               delete by closebutton now triggers fade animation (zack)
+               bugfix for the first focus bug (zack)
+
  */
-/* Coded by: emposha <admin@emposha.com> */
+/* Coded by: emposha <admin@emposha.com>, Zachary Murray <zack@tangiblesoft.net> */
 /* Copyright: Emposha.com <http://www.emposha.com> - Distributed under MIT - Keep this message! */
+/* CMC Changes Copyright 2011 Tangible, LLC. Distributed under MIT - Keep this message! */
 
 /**
  * json_url         - url to fetch json object
@@ -90,7 +101,17 @@ jQuery(function($) {
                 }
 
                 holder = $(document.createElement("ul"));
-                holder.attr("class", "holder");
+                holder.attr("class", "ui-corner-all holder");
+
+                // change by zack: adding option to show an icon class
+                if (options.cmc_icon_class) {
+                  var icon = $(document.createElement("div"));
+                  icon.attr({
+                    "class" : options.cmc_icon_class,
+                    "style" : "float: right; clear: both; margin-top: 1px; vertical-align: middle"
+                  });
+                  holder.prepend(icon);
+                }
                 
                 if (options.attachto) {
                   if (typeof(options.attachto) == "object") {
@@ -107,7 +128,7 @@ jQuery(function($) {
 
                 complete = $(document.createElement("div"));
                 complete.addClass("facebook-auto");
-                complete.append('<div class="default">' + options.complete_text + "</div>");
+                complete.append('<div class="ui-state-default ui-corner-all default">' + options.complete_text + "</div>");
                 complete.hover(function() {complete_hover = 0;}, function() {complete_hover = 1;});
                 
                 feed = $(document.createElement("ul"));
@@ -163,23 +184,62 @@ jQuery(function($) {
                 var li = document.createElement("li");
                 var txt = document.createTextNode(title);
                 var aclose = document.createElement("a");
-                var liclass = "bit-box" + (locked ? " locked": "");
+                var liclass = "ui-button ui-corner-all ui-state-default bit-box" + (locked ? " locked": "");
+
                 $(li).attr({
                     "class": liclass,
                     "rel": value
                 });
                 $(li).prepend(txt);
+                
+                $(li).hover( // changed by zack, adding hover support to list items
+                  function() { //mouseover
+                    if(!$(this).hasClass("deleted")) {
+                      $(this).addClass("ui-state-hover");
+                    }
+                  },
+                  function() { //mouseout
+                    if(!$(this).hasClass("deleted")) {
+                      $(this).removeClass("ui-state-hover");
+                    }
+                  }
+                );
+
+                $(li).click( // changed by zack, adding click selection support
+                  function(event) {
+                    event.stopPropagation();
+                    if($(this).hasClass("deleted")) {
+                      // it's already selected, deselect it (and by it I mean
+                      // everything)
+                      holder.children("li.bit-box.deleted").removeClass("deleted").removeClass("ui-state-hover");
+                    } else {
+                      // otherwise, select it, but only after deselecting
+                      // everything else first
+                      holder.children("li.bit-box.deleted").removeClass("deleted").removeClass("ui-state-hover");
+                      $(this).addClass("deleted").addClass("ui-state-hover");
+                    }
+                    $("#" + elemid + "_annoninput").children(".maininput").focus();
+                  }
+                );
+
                 $(aclose).attr({
-                    "class": "closebutton",
+                    "class": "closebutton ui-icon ui-icon-close",
                     "href": "#"
                 });
 
                 li.appendChild(aclose);
                 holder.append(li);
 
-                $(aclose).click(function() {
-                    removeItem($(this).parent("li"));
-                    return false;
+                $(aclose).click(function(event) {
+                  // slight change here from zack, clicking the close button
+                  // will now animate the fadeout instead of it being instant.
+                  event.stopPropagation();
+                  $(this).parent("li").fadeOut("fast",
+                    function() {
+                      removeItem($(this));
+                      return false;
+                  });
+                  $("#" + elemid + "_annoninput").children(".maininput").focus();
                 });
 
                 if (!preadded) {
@@ -207,7 +267,7 @@ jQuery(function($) {
                     }
                     element.change();
                 }
-                holder.children("li.bit-box.deleted").removeClass("deleted");
+                holder.children("li.bit-box.deleted").removeClass("deleted").removeClass("ui-state-hover");
                 feed.hide();
             }
 
@@ -238,6 +298,7 @@ jQuery(function($) {
                 input.attr({
                     "type": "text",
                     "class": "maininput",
+                    "style": "background-color: transparent;",
                     "size": "1"
                 });
                 holder.append(li.append(input));
@@ -255,6 +316,14 @@ jQuery(function($) {
                     }
                 });              
 
+                // change from zack: clicking the input will now deselect any
+                // selected items
+                input.click(function(event) {
+                  if($(event.target).is(this)) {
+                    holder.children("li.bit-box.deleted").removeClass("deleted").removeClass("ui-state-hover");
+                  }
+                });
+
                 holder.click(function() {
                     input.focus();
                     if (feed.length && input.val().length) {
@@ -264,6 +333,9 @@ jQuery(function($) {
                         feed.hide();
                         complete.children(".default").show();
                     }
+                    // change from zack: clicking anywhere in the holder will
+                    // deselect any selected items
+                    holder.children("li.bit-box.deleted").removeClass("deleted").removeClass("ui-state-hover");
                 });
 
                 input.keypress(function(event) {
@@ -289,19 +361,26 @@ jQuery(function($) {
                         feed.hide();
                         if (!holder.children("li.bit-box:last").hasClass('locked')) {
                             if (holder.children("li.bit-box.deleted").length == 0) {
-                                holder.children("li.bit-box:last").addClass("deleted");
+                                holder.children("li.bit-box:last").addClass("deleted").addClass("ui-state-hover");
                                 return false;
                             }
                             else{
                                 if (deleting) {
-                                    return;
+                                    //return;
                                 }
                                 deleting = 1;
-                                holder.children("li.bit-box.deleted").fadeOut("fast",
-                                function() {
-                                    removeItem($(this));
-                                    return false;
-                                });
+                                // changed by zack: switching bit-box class to
+                                // bit-box-deleting to make backspaces much,
+                                // much more user-friendly and snappier
+                                holder.children("li.bit-box.deleted")
+                                  .addClass("bit-box-deleting")
+                                  .removeClass("bit-box")
+                                  .fadeOut("fast",
+                                    function() {
+                                        removeItem($(this));
+                                        return false;
+                                    });
+                                holder.children("li.bit-box:last").addClass("deleted").addClass("ui-state-hover");
                             }
                         }
                     }
@@ -309,6 +388,11 @@ jQuery(function($) {
                     if (event.keyCode != 40 && event.keyCode != 38 && event.keyCode!=37 && event.keyCode!=39 && etext.length != 0) {
                         counter = 0;
 
+                        // changed by zack: adding zipcode detection
+                        if (options.cmc_zipcode_detect && etext == "26101") {
+                            addZipcodeMembers(etext);
+                            bindEvents();
+                        } else // end zack's changes for zipcode
                         if (options.json_url) {
                             if (options.cache && json_cache) {
                                 addMembers(etext);
@@ -344,6 +428,36 @@ jQuery(function($) {
                     },
                     1);
                 }
+            }
+
+            function addZipcodeMembers(etext) {
+              feed.html('');
+
+              addTextItem(etext);
+
+              var content = '';
+              //content += '<li class="ui-state-default ui-corner-all" rel="' + /*object.value*/ 'Within 20 miles of 26101 (Parkersburg, WV)' + '">' + /*itemIllumination(object.key, etext)*/ 'Within 20 miles of 26101 (Parkersburg, WV)' + '</li>';
+              var list;
+              for(var each in list = [10, 25, 50, 100]) {
+                content += '<li class="ui-state-default ui-corner-all" rel="' + /*object.value*/ 'Within ' + list[each] + ' miles of 26101 (Parkersburg, WV)' + '">' + /*itemIllumination(object.key, etext)*/ 'Within ' + list[each] + ' miles of 26101 (Parkersburg, WV)' + '</li>';
+              }
+
+              feed.append(content);
+              
+              if (options.firstselected) {
+                focuson = feed.children("li:visible:first");
+                focuson.addClass("ui-state-hover auto-focus");
+              }
+
+              if (counter > options.height) {
+                feed.css({
+                  "height": (options.height * 24) + "px",
+                  "overflow": "auto"
+                });
+              }
+              else{
+                feed.css("height", "auto");
+              }
             }
 
             function addMembers(etext, data) {
@@ -390,7 +504,7 @@ jQuery(function($) {
                         //nothing here...
                         }
                     else{
-                        content += '<li rel="' + object.value + '">' + itemIllumination(object.key, etext) + '</li>';
+                        content += '<li class="ui-state-default ui-corner-all" rel="' + object.value + '">' + itemIllumination(object.key, etext) + '</li>';
                         counter++;
                         maximum--;
                     }
@@ -400,7 +514,7 @@ jQuery(function($) {
 
                 if (options.firstselected) {
                     focuson = feed.children("li:visible:first");
-                    focuson.addClass("auto-focus");
+                    focuson.addClass("ui-state-hover auto-focus");
                 }
 
                 if (counter > options.height) {
@@ -434,13 +548,13 @@ jQuery(function($) {
 
             function bindFeedEvent() {
                 feed.children("li").mouseover(function() {
-                    feed.children("li").removeClass("auto-focus");
-                    $(this).addClass("auto-focus");
+                    feed.children("li").removeClass("ui-state-hover auto-focus");
+                    $(this).addClass("ui-state-hover auto-focus");
                     focuson = $(this);
                 });
 
                 feed.children("li").mouseout(function() {
-                    $(this).removeClass("auto-focus");
+                    $(this).removeClass("ui-state-hover auto-focus");
                     focuson = null;
                 });
             }
@@ -473,47 +587,53 @@ jQuery(function($) {
                     }
 
                     if (event.keyCode != 8) {
-                        holder.children("li.bit-box.deleted").removeClass("deleted");
+                        holder.children("li.bit-box.deleted").removeClass("deleted").removeClass("ui-state-hover");
                     }
 
                     if ((event.keyCode == 13 || event.keyCode == 9) && checkFocusOn()) {
                         var option = focuson;
-                        addItem(option.text(), option.attr("rel"), 0, 0, 1);
-                        complete.hide();
-                        event.preventDefault();
-                        focuson = null;
+                        if($.trim(option.text()) != "") { // bugfix from zack: do not add blank items
+                          addItem(option.text(), option.attr("rel"), 0, 0, 1);
+                          complete.hide();
+                          event.preventDefault();
+                          focuson = null;
+                        }
                         return false;
                     }
 
                     if ((event.keyCode == 13 || event.keyCode == 9) && !checkFocusOn()) {
                         if (options.newel) {
                             var value = xssPrevent($(this).val());
-                            addItem(value, value, 0, 0, 1);
-                            complete.hide();
-                            event.preventDefault();
-                            focuson = null;
+                            if($.trim(value) != "") { // bugfix from zack: do not add blank items
+                              addItem(value, value, 0, 0, 1);
+                              complete.hide();
+                              event.preventDefault();
+                              focuson = null;
+                            }
                             return false;
                         }
                         
                         if (options.addontab) {
                           focuson = feed.children("li:visible:first");
                           var option = focuson;
-                          addItem(option.text(), option.attr("rel"), 0, 0, 1);
-                          complete.hide();
-                          event.preventDefault();
-                          focuson = null;
+                          if($.trim(option.text()) != "") { // bugfix from zack: do not add blank items
+                            addItem(option.text(), option.attr("rel"), 0, 0, 1);
+                            complete.hide();
+                            event.preventDefault();
+                            focuson = null;
+                          }
                           return false;
                         }                        
                     }
 
-                    if (event.keyCode == 40) {
+                    if (event.keyCode == 40) { // down arrow
                         removeFeedEvent();
                         if (focuson == null || focuson.length == 0) {
                             focuson = feed.children("li:visible:first");
                             feed.get(0).scrollTop = 0;
                         }
                         else{
-                            focuson.removeClass("auto-focus");
+                            focuson.removeClass("ui-state-hover auto-focus");
                             focuson = focuson.nextAll("li:visible:first");
                             var prev = parseInt(focuson.prevAll("li:visible").length, 10);
                             var next = parseInt(focuson.nextAll("li:visible").length, 10);
@@ -521,17 +641,17 @@ jQuery(function($) {
                                 feed.get(0).scrollTop = parseInt(focuson.get(0).scrollHeight, 10) * (prev - Math.round(options.height / 2));
                             }
                         }
-                        feed.children("li").removeClass("auto-focus");
-                        focuson.addClass("auto-focus");
+                        feed.children("li").removeClass("ui-state-hover auto-focus");
+                        focuson.addClass("ui-state-hover auto-focus");
                     }
-                    if (event.keyCode == 38) {
+                    if (event.keyCode == 38) { // up arrow
                         removeFeedEvent();
                         if (focuson == null || focuson.length == 0) {
                             focuson = feed.children("li:visible:last");
                             feed.get(0).scrollTop = parseInt(focuson.get(0).scrollHeight, 10) * (parseInt(feed.children("li:visible").length, 10) - Math.round(options.height / 2));
                         }
                         else{
-                            focuson.removeClass("auto-focus");
+                            focuson.removeClass("ui-state-hover auto-focus");
                             focuson = focuson.prevAll("li:visible:first");
                             var prev = parseInt(focuson.prevAll("li:visible").length, 10);
                             var next = parseInt(focuson.nextAll("li:visible").length, 10);
@@ -539,8 +659,8 @@ jQuery(function($) {
                                 feed.get(0).scrollTop = parseInt(focuson.get(0).scrollHeight, 10) * (prev - Math.round(options.height / 2));
                             }
                         }
-                        feed.children("li").removeClass("auto-focus");
-                        focuson.addClass("auto-focus");
+                        feed.children("li").removeClass("ui-state-hover auto-focus");
+                        focuson.addClass("ui-state-hover auto-focus");
                     }
                 });
             }
@@ -564,6 +684,7 @@ jQuery(function($) {
                     }
                     var li = $(document.createElement("li"));
                     li.attr({
+                        "class": "ui-state-default ui-corner-all",
                         "rel": value,
                         "fckb": "1"
                     }).html(value);
@@ -619,7 +740,9 @@ jQuery(function($) {
                 onselect: null,
                 onremove: null,
                 attachto: null,
-                delay: 350
+                delay: 350,
+                cmc_zipcode_detect: false,
+                cmc_icon_class: false
             },
             opt);
 
