@@ -389,7 +389,7 @@ jQuery(function($) {
                         counter = 0;
 
                         // changed by zack: adding zipcode detection
-                        if (options.cmc_zipcode_detect && etext == "26101") {
+                        if (options.cmc_zipcode_detect && etext.match(/^(?:\d{5}(?=-\d{4}(?!\S))|\d{5}(?!\S))/) != null) {
                             addZipcodeMembers(etext);
                             bindEvents();
                         } else // end zack's changes for zipcode
@@ -435,13 +435,46 @@ jQuery(function($) {
 
               addTextItem(etext);
 
-              var content = '', list;
-              //content += '<li class="ui-state-default ui-corner-all" rel="' + /*object.value*/ 'Within 20 miles of 26101 (Parkersburg, WV)' + '">' + /*itemIllumination(object.key, etext)*/ 'Within 20 miles of 26101 (Parkersburg, WV)' + '</li>';
-              for(var each in list = [10, 25, 50, 100]) {
-                content += '<li class="ui-state-default ui-corner-all" rel="' + /*object.value*/ 'Within ' + list[each] + ' miles of 26101 (Parkersburg, WV)' + '">' + /*itemIllumination(object.key, etext)*/ 'Within ' + list[each] + ' miles of 26101 (Parkersburg, WV)' + '</li>';
-              }
+              if (!zipcode_request_in_progress) {
+                zipcode_request_in_progress = true;
+                $.ajax(options.zipcode_target, {
+                  data: { z: etext.substr(0, 5) },
+                  dataType: "json",
+                  success: function(response, textStatus) {
+                    var content = '', value;
+                    if(!response.has_error) {
+                      for(var each in options.zipcode_distances) {
+                        value = '!!z:' + response.zipcode + ':' + options.zipcode_distances[each];
+                        content += '<li class="ui-state-default ui-corner-all" rel="' + value + '">';
+                        value = 'Within ' + options.zipcode_distances[each] + ' miles of ' + etext.substr(0, 5) + ' (' + response.city + ')';
+                        content += itemIllumination(value, etext.match(/\d{5}/));
+                        content += '</li>';
+                      }
 
-              feed.append(content);
+                      feed.append(content);
+
+                      if (options.firstselected) {
+                        focuson = feed.children("li:visible:first");
+                        focuson.addClass("ui-state-hover auto-focus");
+                      }
+
+                      if (counter > options.height) {
+                        feed.css({
+                          "height": (options.height * 24) + "px",
+                          "overflow": "auto"
+                        });
+                      } else {
+                        feed.css("height", "auto");
+                      }
+
+                      bindEvents();
+                    }
+                  },
+                  complete: function() {
+                    zipcode_request_in_progress = false;
+                  }
+                });
+              }
               
               if (options.firstselected) {
                 focuson = feed.children("li:visible:first");
@@ -740,6 +773,8 @@ jQuery(function($) {
                 attachto: null,
                 delay: 350,
                 cmc_zipcode_detect: false,
+                zipcode_distances: [10, 25, 50, 100],
+                zipcode_target: "zipcode.php",
                 cmc_icon_class: false
             },
             opt);
@@ -755,6 +790,7 @@ jQuery(function($) {
             var focuson = null;
             var deleting = 0;
             var complete_hover = 1;
+            var zipcode_request_in_progress = false;
 
             var element = $(this);
             var elemid = element.attr("id");
